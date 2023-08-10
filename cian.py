@@ -17,9 +17,11 @@ class Driver:
         self.driver.maximize_window()
 
     @property
-    def get_driver(self):
+    def get_driver(self) -> webdriver:
         """
-        Возвращает экземпляр драйвера
+        Возвращает webdriver
+        Returns:
+            webdriver: Экземпляр webdriver
         """
         return self.driver
 
@@ -28,16 +30,18 @@ class Urls:
     """ Создает и модифицирует ссылки """
     @property
     def get_urls(self) -> list[str]:
+        """ Читает файл и получает список ссылок
+        Returns:
+            list[str]: Список ссылок
         """
-        Превращает текст из файла в список ссылок.
-        """
+        str_urls = ""
         with open("urls.ini", "r", encoding="utf-8") as file:
-            urls = file.read()
+            str_urls = file.read()
             file.close()
-            urls = urls.split("\n")
-            if "" in urls:
-                urls.remove("")
-            return urls
+        urls = str_urls.split("\n")
+        if "" in urls:
+            urls.remove("")
+        return urls
 
     def write_url(self, url):
         """ Добавляет пройденнные ссылки в файл """
@@ -93,6 +97,7 @@ class Parsing:
     def get_items(self, page_number: int):
         """ Получение нужных элементов для записи в JSON файл.
             page_number (int): номер странцы
+            
         """
         try:
             # Рабта с BS4
@@ -178,14 +183,28 @@ class Parsing:
         except Exception as exception:
             print("next_page g_sourse", exception)
 
-    def page_number(self, url: str):
-        """ Получение номера страницы по ссылке """
+    def page_number(self, url: str) -> int:
+        """ Получает номер страницы
+
+        Args:
+            url (str): Ссылка для получения номера
+
+        Returns:
+            int: Номер страницы ссылки
+        """
         spliter = url.split("&")
         page = spliter[3][2:]
         return int(page)
 
     def next_page(self, url: str) -> str:
-        """ Создание следующей ссылки """
+        """ Создает новую ссылку
+
+        Args:
+            url (str): Принимает старую ссылку
+
+        Returns:
+            str: Новая ссылка
+        """
         x = url.split("&")
         x[3] = f"p={self.page_number(url)+1}"
         new_url = "&".join(x)
