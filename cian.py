@@ -89,7 +89,7 @@ class Parsing:
             # Если парсер прошел все страницы
             if self.url in self.url_list:
                 urls.clear_urls()
-                logging.info(f"Parsing done. Closing parser.")
+                logging.info(f"parsing done. Closing parser.")
                 self.stop()
             else:
                 self.url_list = ur.get_urls
@@ -100,120 +100,112 @@ class Parsing:
             # Обработка временного файла с данными
             self.get_items(self.page_number(self.url))
             logging.info(f"get items complete")
-
+    
+    @staticmethod
+    def error_handler(func):
+        def handler(*args, **kwargs):
+            try:
+                res = func(*args, **kwargs)
+            except Exception as exception:
+                logging.exception(f"{func.__name__} exception: {exception}")
+            else:
+                logging.info(f"{func.__name__} done.")
+                return res
+        return handler
+    
+    @error_handler
+    def find_article(self,soup):
+        # Ищем все блоки article
+        item_divs = soup.find_all("article")
+        return item_divs
+    
+    @error_handler
+    def find_href(self,item):
+        item_href = item.find(
+                    "a", class_="_93444fe79c--media--9P6wN").get("href")
+        return item_href
+    
+    @error_handler
+    def find_header(self,item):
+        header = item.find(
+                    "span", attrs={"data-mark": "OfferTitle"}).find("span").text
+        return header
+    
+    @error_handler
+    def find_sepNames(self,item):
+        sep_names = item.find_all(
+                    "a", class_="_93444fe79c--link--NQlVc")
+        return sep_names
+    
+    @error_handler
+    def create_name(self,sep_names):
+        addr = ""
+        for name in sep_names:
+            addr += f" {name.contents[0]}"
+        return addr
+    
+    @error_handler
+    def find_price(self,item):
+        price = item.find(
+            "span", attrs={"data-mark": "MainPrice"}).find("span").text
+        return price
+    
+    @error_handler
+    def find_content(self,item):
+        content = item.find(
+                    "div", attrs={"data-name": "Description"}).find("p").text
+        return content
+    
+    @error_handler
+    def find_devName(self,item):
+        dev = item.find("div",
+                    class_="_93444fe79c--name-container--enElO").find("span").text
+        return dev
+    
+    @error_handler
+    def create_dic(self,item,page_number):
+        new_data = {
+                    "Заголовок": self.find_href(item),
+                    "Ссылка": self.find_header(item),
+                    "Адрес": self.create_name(self.find_sepNames(item)),
+                    "Цена": self.find_price(item),
+                    "Описание": self.find_content(item),
+                    "Застройщик": self.find_devName(item),
+                    "Номер страницы": page_number
+                }
+        return new_data
+    
+    @error_handler  
+    def append_data(self,data_list):
+        with open("file.json", "a", encoding="utf-8") as json_:
+                json.dump(data_list, json_, indent=5, ensure_ascii=False)
+                
     def get_items(self, page_number: int):
         """ Получение нужных элементов для записи в JSON файл.
             page_number (int): номер странцы
             
         """
-        try:
-            logging.info(f"call get_items")
-            # Рабта с BS4
-            soup = BeautifulSoup(self.data, "lxml")
-            # Ищем все блоки article
-            item_divs = soup.find_all("article")
-        except Exception as exception:
-            logging.exception(f"Cant find arcticle: {exception}")
-        else:
-            logging.info("Article found")
+        logging.info(f"call get_items")
+        # Рабта с BS4
+        soup = BeautifulSoup(self.data, "lxml")
+        item_divs = self.find_article(soup)
         # Перебираем их для обработки
         data_list = []
         for item in item_divs:
             item: BeautifulSoup
-            try:
-                # Получаем ссылку на предмет
-                item_href = item.find(
-                    "a", class_="_93444fe79c--media--9P6wN").get("href")
-            except Exception as exception:
-                logging.exception(f"Cant find href: {exception}")
-            else:
-                logging.info("href found")
-            try:
-                # Получаем заголовок обьявления
-                header = item.find(
-                    "span", attrs={"data-mark": "OfferTitle"}).find("span").text
-            except Exception as exception:
-                logging.exception(f"Cant find header: {exception}")
-            else:
-                logging.info("header found")
-            try:
-                # Адрес разделен на несколько блоков, ищем все
-                sep_names = item.find_all(
-                    "a", class_="_93444fe79c--link--NQlVc")
-            except Exception as exception:
-                logging.exception(f"Cant find sep_names: {exception}")
-            else:
-                logging.info("sep_names found")
-            try:
-                # Создаем пустую строку в которую закидваем текст
-                addr = ""
-                for name in sep_names:
-                    addr += f" {name.contents[0]}"
-            except Exception as exception:
-                logging.exception(f"generating name: {exception}")
-            else:
-                logging.info("name done")
-            try:
-                # Получаем цену предмета
-                price = item.find(
-                    "span", attrs={"data-mark": "MainPrice"}).find("span").text
-            except Exception as exception:
-                logging.exception(f"Cant find price: {exception}")
-            else:
-                logging.info("price found")
-            try:
-                # Получаем описание предмета (не знаю в чем проблема)
-                content = item.find(
-                    "div", attrs={"data-name": "Description"}).find("p").text
-            except Exception as exception:
-                logging.exception(f"Cant find content: {exception}")
-            else:
-                logging.info("content found")
-            try:
-                # Получаем застройщика
-                dev = item.find("div",
-                                class_="_93444fe79c--name-container--enElO").find("span").text
-            except Exception as exception:
-                logging.exception(f"Cant find dev_name: {exception}")
-            else:
-                logging.info("dev_name found")
-            try:
-                # Создаем словарь для записи в JSON
-                new_data = {
-                    "Заголовок": header,
-                    "Ссылка": item_href,
-                    "Адрес": addr,
-                    "Цена": price,
-                    "Описание": content,
-                    "Застройщик": dev,
-                    "Номер страницы": page_number
-                }
-                data_list.append(new_data)
-            except Exception as exception:
-                logging.exception(f"Cant asseble dic: {exception}")
-            else:
-                logging.info("dic done")        
-        try:
-            with open("file.json", "a", encoding="utf-8") as json_:
-                json.dump(data_list, json_, indent=5, ensure_ascii=False)
-                json_.close()
-        except Exception as exception:
-            logging.exception(f"json write exception: {exception}")
-        else:
-            logging.info("json done")  
+            data_list.append(self.create_dic(item,page_number))        
+        self.append_data(data_list)
         try:
             # Записываем в файл что мы запарсили эту страницу
             ur.write_url(self.url)
-            # Небольшая задержка (Можно убрать)
-            #time.sleep(1)
             self.get_source(self.next_page(self.url))
         except Exception as exception:
             logging.exception(f"cant get_source from next_page: {exception}")
         else:
             logging.info(f"Page parsed {page_number}") 
-
+    
+    @error_handler
     def page_number(self, url: str) -> int:
-        logging.info(f"call page_number") 
         """ Получает номер страницы
 
         Args:
@@ -225,9 +217,9 @@ class Parsing:
         spliter = url.split("&")
         page = spliter[3][2:]
         return int(page)
-
+    
+    @error_handler
     def next_page(self, url: str) -> str:
-        logging.info(f"call next_page") 
         """ Создает новую ссылку
 
         Args:
@@ -240,7 +232,7 @@ class Parsing:
         x[3] = f"p={self.page_number(url)+1}"
         new_url = "&".join(x)
         return new_url
-
+    
     def stop(self):
         """ Выход из программы """
         logging.info(f"call stop") 
